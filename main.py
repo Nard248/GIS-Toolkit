@@ -374,7 +374,7 @@ def main():
 
         # Database connection
         step_start_time = time.time()
-        db_connection_url = "postgresql://postgresqlwireless2020:software2020!!@wirelesspostgresqlflexible.postgres.database.azure.com:5432/wiroidb2"
+        db_connection_url = "DB-CON-URL"
         con = create_engine(db_connection_url)
         step_start_time = log_time(log_file, "Establishing database connection", step_start_time)
 
