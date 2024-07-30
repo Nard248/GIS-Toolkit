@@ -95,7 +95,7 @@ def query_counties_by_provider(provider_id, state, table_name):
     # WHERE fips IN
     #     (SELECT
     #         DISTINCT fips_code
-    #      FROM us_census_block_data cb
+    #      FROM us_census_block_data cbv
     #      WHERE cb.provider_id = ANY(ARRAY[{provider_id}]) AND cb.state_abbr = ANY(ARRAY[{state}]))
     return query
 
@@ -144,18 +144,7 @@ def get_hex(provider_id, state, con, table_name):
     FROM us_fcc_joined_h3_resolution8_test h3
     INNER JOIN {table_name} temp ON h3.county_fips = temp.county_fips
     """
-    # WHERE
-    # county_fips
-    # IN(SELECT
-    # DISTINCT
-    # fips_code
-    # FROM
-    # us_census_block_data
-    # cb
-    # WHERE
-    # cb.provider_id = ANY(ARRAY[{provider_id}])
-    # AND
-    # cb.state_abbr = ANY(ARRAY[{state}]));
+
     hex = gpd.GeoDataFrame.from_postgis(query, con, geom_col='geom', crs='EPSG:4326').to_crs('ESRI:102008')
 
     return hex
@@ -371,6 +360,8 @@ def main():
     # Open log file
     log_file_path = os.path.join(save_path, "log.txt")
     with open(log_file_path, "a") as log_file:
+        step_start_time = log_time(log_file, "Starting the Script of 30-10 Mile Buffer Version as of 7/31/2024",
+                                   step_start_time)
 
         # Database connection
         step_start_time = time.time()
@@ -383,6 +374,7 @@ def main():
 
             # Create temporary table
             step_start_time = time.time()
+
             current_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             table_name = f"temp_fips_{current_timestamp}"
 
@@ -406,6 +398,16 @@ def main():
             FROM us_census_block_data cb
             WHERE provider_id = ANY(ARRAY[{provider_id}]) AND cb.state_abbr = ANY(ARRAY[{state_abbr}]);
             """
+
+            provider_id_var = ast.literal_eval(provider_id)
+            if 130627 in provider_id_var:
+                insert_data_query = f"""
+                            INSERT INTO {table_name} (county_fips)
+                            SELECT DISTINCT fips_code
+                            FROM us_census_block_data cb
+                            WHERE provider_id = ANY(ARRAY[{provider_id}]) AND cb.state_abbr = ANY(ARRAY[{state_abbr}]) AND cb.fips_code = ANY(ARRAY[{fips}]);
+                            """
+
             session.execute(text(insert_data_query))
             session.commit()
             step_start_time = log_time(log_file, "Inserting data into temporary table", step_start_time)
@@ -481,12 +483,14 @@ def main():
 
             # Hex grid processing
             step_start_time = time.time()
+
             hex_gdf = get_hex(provider_id, state_abbr, con, table_name=table_name)
             joined_gdf = gpd.sjoin(hex_gdf, locations, how="inner", predicate='contains')
             location_counts = joined_gdf.groupby(joined_gdf.index).size()
             hex_gdf['Unserved_Unfunded'] = \
-            hex_gdf.merge(location_counts.rename('Unserved_Unfunded'), how='left', left_index=True, right_index=True)[
-                'Unserved_Unfunded']
+                hex_gdf.merge(location_counts.rename('Unserved_Unfunded'), how='left', left_index=True,
+                              right_index=True)[
+                    'Unserved_Unfunded']
             hex_gdf = hex_gdf.dropna(subset=['Unserved_Unfunded'])
             hex_gdf['Unserved_Unfunded'] = hex_gdf['Unserved_Unfunded'].fillna(0)
             hex_gdf = hex_gdf[hex_gdf['Unserved_Unfunded'] > 0]
@@ -499,7 +503,6 @@ def main():
             gradient_path = write_gradient_ranges_staticly(hex_gdf)
             step_start_time = log_time(log_file, "Hex grid processing", step_start_time)
 
-            # Locations within counties
             step_start_time = time.time()
             locations_within_counties = gpd.sjoin(locations, counties_fp.to_crs('ESRI:102008').drop(
                 columns=['id', 'state_abbr', 'county_name']), how="inner", predicate='within').to_crs('EPSG:4326')
