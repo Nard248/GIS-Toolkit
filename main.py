@@ -220,7 +220,7 @@ def mile_to_meter(miles):
 
 def create_formatted_excel(provider_name, market, unserved_unfunded_FP,
                            unserved_unfunded_10_miles, unserved_unfunded_30_miles,
-                           in_footprint_counties, file_path, locations_within_counties, location_in_fp):
+                           in_footprint_counties, file_path, locations_within_counties, location_in_fp, state):
     df = pd.DataFrame({
         'Provider Name': [provider_name],
         'Market': [market],
@@ -236,7 +236,7 @@ def create_formatted_excel(provider_name, market, unserved_unfunded_FP,
 
     # Access the xlsxwriter workbook and worksheet objects
     workbook = writer.book
-    worksheet = writer.sheets['Sheet1']
+    worksheet = writer.sheets[f'{state}']
 
     # Define the formats
     header_format = workbook.add_format({'bg_color': '#9BBB59', 'bold': True})
@@ -360,12 +360,11 @@ def main():
     # Open log file
     log_file_path = os.path.join(save_path, "log.txt")
     with open(log_file_path, "a") as log_file:
-        step_start_time = log_time(log_file, "Starting the Script of 30-10 Mile Buffer Version as of 7/31/2024",
-                                   step_start_time)
+        log_file.write("Starting the Script of 30-10 Mile Buffer Version as of 01/31/2024 Version 8.0.0\n")
 
         # Database connection
         step_start_time = time.time()
-        db_connection_url = "DB-CON-URL"
+        db_connection_url = "postgresql://postgresqlwireless2020:software2020!!@wirelesspostgresqlflexible.postgres.database.azure.com:5432/wiroidb2"
         con = create_engine(db_connection_url)
         step_start_time = log_time(log_file, "Establishing database connection", step_start_time)
 
@@ -626,7 +625,7 @@ def main():
             create_formatted_excel(provider_name, state_name, len(locations_in_cb_footprint),
                                    len(locations_in_10mileBuffer),
                                    len(locations_in_30mileBuffer), len(locations_within_counties), path_excel,
-                                   locations_within_counties, locations_in_cb_footprint)
+                                   locations_within_counties, locations_in_cb_footprint, state_name)
             step_start_time = log_time(log_file, "Creating Excel report", step_start_time)
 
             # Delete temporary table
