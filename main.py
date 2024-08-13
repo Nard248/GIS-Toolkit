@@ -232,11 +232,11 @@ def create_formatted_excel(provider_name, market, unserved_unfunded_FP,
 
     # Start a writer instance using xlsxwriter
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Sheet1')
+    df.to_excel(writer, index=False, sheet_name=state)
 
     # Access the xlsxwriter workbook and worksheet objects
     workbook = writer.book
-    worksheet = writer.sheets[f'{state}']
+    worksheet = writer.sheets[state]
 
     # Define the formats
     header_format = workbook.add_format({'bg_color': '#9BBB59', 'bold': True})
